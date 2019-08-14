@@ -17,7 +17,6 @@ display_name: Google Kubernetes Engine
 versions:
   - !ruby/object:Api::Product::Version
     name: ga
-    default: true
     base_url: https://container.googleapis.com/v1/
   - !ruby/object:Api::Product::Version
     name: beta
@@ -32,7 +31,7 @@ async: !ruby/object:Api::Async
   operation: !ruby/object:Api::Async::Operation
     kind: 'container#operation'
     path: 'name'
-    base_url: 'projects/{{project}}/zones/{{zone}}/operations/{{op_id}}'
+    base_url: 'projects/{{project}}/locations/{{location}}/operations/{{op_id}}'
     wait_ms: 1000
   result: !ruby/object:Api::Async::Result
     path: 'targetLink'
@@ -57,6 +56,19 @@ objects:
         name: 'location'
         description: 'The location where the cluster is deployed'
         required: true
+      - !ruby/object:Api::Type::String
+        name: 'kubectlPath'
+        description: |
+          The path that the kubectl config file will be written to.
+
+          The file will not be created if this path is unset.
+
+          Any existing file at this path will be completely overwritten.
+
+          This requires the PyYaml library.
+      - !ruby/object:Api::Type::String
+        name: 'kubectlContext'
+        description: 'The name of the context for the kubectl config file. Will default to the cluster name'
     properties:
       - !ruby/object:Api::Type::String
         name: 'name'
@@ -260,7 +272,7 @@ objects:
             description: |
               The password to use for HTTP basic authentication to the master
               endpoint. Because the master endpoint is open to the Internet, you
-              should create a strong password.
+              should create a strong password with a minimum of 16 characters.
           - !ruby/object:Api::Type::NestedObject
             name: 'clientCertificateConfig'
             description: |
@@ -568,7 +580,7 @@ objects:
               description: Human-friendly representation of the condition
   - !ruby/object:Api::Resource
     name: 'NodePool'
-    base_url: projects/{{project}}/zones/{{location}}/clusters/{{cluster}}/nodePools
+    base_url: projects/{{project}}/locations/{{location}}/clusters/{{cluster}}/nodePools
     description: |
       NodePool contains the name and configuration for a cluster's node pool.
       Node pools are a set of nodes (i.e. VM's), with a common configuration and
@@ -838,29 +850,3 @@ objects:
         name: 'podIpv4CidrSize'
         description: The pod CIDR block size per node in this node pool.
         output: true
-  - !ruby/object:Api::Resource
-    name: 'KubeConfig'
-    base_url: 'unused'
-    description: |
-      Generates a compatible Kuberenetes '.kube/config' file
-    properties:
-      - !ruby/object:Api::Type::String
-        name: 'name'
-        description: 'The config file kubectl settings will be written to.'
-        required: true
-      - !ruby/object:Api::Type::ResourceRef
-        name: 'cluster'
-        resource: 'Cluster'
-        imports: 'name'
-        description: 'A reference to Cluster resource'
-        required: true
-      # TODO(nelsonjr): Make 'zone' a ResourceRef once cross-module references
-      # are possible.
-      - !ruby/object:Api::Type::String
-        name: 'location'
-        description: 'The location where the container is deployed'
-        required: true
-      - !ruby/object:Api::Type::String
-        name: 'context'
-        description: 'The name of the context. Defaults to cluster name.'
-        required: true

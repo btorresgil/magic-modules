@@ -88,9 +88,6 @@ The following arguments are supported:
     packets with non-matching source or destination IPs.
     This defaults to false.
 
-* `create_timeout` - (Optional) Configurable timeout in minutes for creating instances. Default is 4 minutes.
-    Changing this forces a new resource to be created.
-
 * `description` - (Optional) A brief description of this resource.
 
 * `deletion_protection` - (Optional) Enable deletion protection on this instance. Defaults to false.
@@ -103,7 +100,7 @@ The following arguments are supported:
 * `guest_accelerator` - (Optional) List of the type and count of accelerator cards attached to the instance. Structure documented below.
     **Note:** GPU accelerators can only be used with [`on_host_maintenance`](#on_host_maintenance) option set to TERMINATE.
 
-* `labels` - (Optional) A set of key/value label pairs to assign to the instance.
+* `labels` - (Optional) A map of key/value label pairs to assign to the instance.
 
 * `metadata` - (Optional) Metadata key/value pairs to make available from
     within the instance. Ssh keys attached in the Cloud Console will be removed.
@@ -347,6 +344,15 @@ exported:
 * `disk.0.disk_encryption_key_sha256` - The [RFC 4648 base64](https://tools.ietf.org/html/rfc4648#section-4)
     encoded SHA-256 hash of the [customer-supplied encryption key]
     (https://cloud.google.com/compute/docs/disks/customer-supplied-encryption) that protects this resource.
+
+## Timeouts
+
+This resource provides the following
+[Timeouts](/docs/configuration/resources.html#timeouts) configuration options:
+
+- `create` - Default is 20 minutes.
+- `update` - Default is 20 minutes.
+- `delete` - Default is 20 minutes.
 
 ## Import
 

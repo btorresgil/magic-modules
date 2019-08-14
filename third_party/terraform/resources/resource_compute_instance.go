@@ -33,9 +33,9 @@ func resourceComputeInstance() *schema.Resource {
 		MigrateState:  resourceComputeInstanceMigrateState,
 
 		Timeouts: &schema.ResourceTimeout{
-			Create: schema.DefaultTimeout(6 * time.Minute),
-			Update: schema.DefaultTimeout(6 * time.Minute),
-			Delete: schema.DefaultTimeout(6 * time.Minute),
+			Create: schema.DefaultTimeout(20 * time.Minute),
+			Update: schema.DefaultTimeout(20 * time.Minute),
+			Delete: schema.DefaultTimeout(20 * time.Minute),
 		},
 
 		// A compute instance is more or less a superset of a compute instance
@@ -81,6 +81,7 @@ func resourceComputeInstance() *schema.Resource {
 							ForceNew:         true,
 							ConflictsWith:    []string{"boot_disk.0.disk_encryption_key_raw"},
 							DiffSuppressFunc: compareSelfLinkRelativePaths,
+							Computed:         true,
 						},
 
 						"initialize_params": {
@@ -113,6 +114,13 @@ func resourceComputeInstance() *schema.Resource {
 										Computed:         true,
 										ForceNew:         true,
 										DiffSuppressFunc: diskImageDiffSuppress,
+									},
+
+									"labels": {
+										Type:     schema.TypeMap,
+										Optional: true,
+										Computed: true,
+										ForceNew: true,
 									},
 								},
 							},
@@ -282,6 +290,7 @@ func resourceComputeInstance() *schema.Resource {
 							Type:             schema.TypeString,
 							Optional:         true,
 							DiffSuppressFunc: compareSelfLinkRelativePaths,
+							Computed:         true,
 						},
 
 						"disk_encryption_key_sha256": {
@@ -945,6 +954,7 @@ func resourceComputeInstanceRead(d *schema.ResourceData, meta interface{}) error
 	d.Set("project", project)
 	d.Set("zone", GetResourceNameFromSelfLink(instance.Zone))
 	d.Set("name", instance.Name)
+	d.Set("description", instance.Description)
 	d.Set("hostname", instance.Hostname)
 	d.SetId(instance.Name)
 
@@ -1634,11 +1644,11 @@ func expandBootDisk(d *schema.ResourceData, config *Config, zone *compute.Zone, 
 
 		if v, ok := d.GetOk("boot_disk.0.initialize_params.0.type"); ok {
 			diskTypeName := v.(string)
-			diskType, err := readDiskType(config, zone, project, diskTypeName)
+			diskType, err := readDiskType(config, d, diskTypeName)
 			if err != nil {
 				return nil, fmt.Errorf("Error loading disk type '%s': %s", diskTypeName, err)
 			}
-			disk.InitializeParams.DiskType = diskType.SelfLink
+			disk.InitializeParams.DiskType = diskType.RelativeLink()
 		}
 
 		if v, ok := d.GetOk("boot_disk.0.initialize_params.0.image"); ok {
@@ -1649,6 +1659,10 @@ func expandBootDisk(d *schema.ResourceData, config *Config, zone *compute.Zone, 
 			}
 
 			disk.InitializeParams.SourceImage = imageUrl
+		}
+
+		if _, ok := d.GetOk("boot_disk.0.initialize_params.0.labels"); ok {
+			disk.InitializeParams.Labels = expandStringMap(d, "boot_disk.0.initialize_params.0.labels")
 		}
 	}
 
@@ -1680,8 +1694,9 @@ func flattenBootDisk(d *schema.ResourceData, disk *computeBeta.AttachedDisk, con
 			"type": GetResourceNameFromSelfLink(diskDetails.Type),
 			// If the config specifies a family name that doesn't match the image name, then
 			// the diff won't be properly suppressed. See DiffSuppressFunc for this field.
-			"image": diskDetails.SourceImage,
-			"size":  diskDetails.SizeGb,
+			"image":  diskDetails.SourceImage,
+			"size":   diskDetails.SizeGb,
+			"labels": diskDetails.Labels,
 		}}
 	}
 
@@ -1700,7 +1715,7 @@ func flattenBootDisk(d *schema.ResourceData, disk *computeBeta.AttachedDisk, con
 }
 
 func expandScratchDisks(d *schema.ResourceData, config *Config, zone *compute.Zone, project string) ([]*computeBeta.AttachedDisk, error) {
-	diskType, err := readDiskType(config, zone, project, "local-ssd")
+	diskType, err := readDiskType(config, d, "local-ssd")
 	if err != nil {
 		return nil, fmt.Errorf("Error loading disk type 'local-ssd': %s", err)
 	}
@@ -1713,7 +1728,7 @@ func expandScratchDisks(d *schema.ResourceData, config *Config, zone *compute.Zo
 			Type:       "SCRATCH",
 			Interface:  d.Get(fmt.Sprintf("scratch_disk.%d.interface", i)).(string),
 			InitializeParams: &computeBeta.AttachedDiskInitializeParams{
-				DiskType: diskType.SelfLink,
+				DiskType: diskType.RelativeLink(),
 			},
 		})
 	}

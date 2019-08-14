@@ -83,7 +83,7 @@ resource "google_container_cluster" "primary" {
       "https://www.googleapis.com/auth/monitoring",
     ]
 
-    metadata {
+    metadata = {
       disable-legacy-endpoints = "true"
     }
 
@@ -109,7 +109,7 @@ resides.
 has been deprecated in favor of `location`.
 
 * `region` - (Optional, Deprecated) The region in which the cluster resides (for
-regional clusters). `zone` has been deprecated in favor of `location`.
+regional clusters). `region` has been deprecated in favor of `location`.
 
 -> Note: You must specify a `location` for either cluster type or the
 type-specific `region` for regional clusters / `zone` for zonal clusters.

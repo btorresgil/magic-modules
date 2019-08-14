@@ -2118,7 +2118,7 @@ resource "google_compute_instance" "foobar" {
 	network_interface {
 		network = "default"
 		access_config {
-			public_ptr_domain_name = "test-record.%s.hashicorptest.com."
+			public_ptr_domain_name = "%s.gcp.tfacc.hashicorptest.com."
 		}
 	}
 
@@ -2344,7 +2344,6 @@ resource "google_compute_instance" "foobar" {
 
 	attached_disk {
 		source = "${google_compute_disk.foobar3.self_link}"
-		kms_key_self_link = "%s"
 	}
 
 	network_interface {
@@ -2360,7 +2359,7 @@ resource "google_compute_instance" "foobar" {
 		diskNames[2], diskNameToEncryptionKey[diskNames[2]].KmsKeyName,
 		"instance-testd-"+acctest.RandString(10),
 		instance, bootEncryptionKey,
-		diskNameToEncryptionKey[diskNames[0]].KmsKeyName, diskNameToEncryptionKey[diskNames[1]].KmsKeyName, diskNameToEncryptionKey[diskNames[2]].KmsKeyName)
+		diskNameToEncryptionKey[diskNames[0]].KmsKeyName, diskNameToEncryptionKey[diskNames[1]].KmsKeyName)
 }
 
 func testAccComputeInstance_attachedDisk(disk, instance string) string {

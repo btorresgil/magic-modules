@@ -28,8 +28,6 @@ module Provider
       # The name of the example in lower snake_case.
       # Generally takes the form of the resource name followed by some detail
       # about the specific test. For example, "address_with_subnetwork".
-      # The template for the example is expected at the path
-      # "templates/terraform/examples/{{name}}.tf.erb"
       attr_reader :name
 
       # The id of the "primary" resource in an example. Used in import tests.
@@ -89,6 +87,14 @@ module Provider
       # Whether to skip generating tests for this resource
       attr_reader :skip_test
 
+      # The name of the primary resource for use in IAM tests. IAM tests need
+      # a reference to the primary resource to create IAM policies for
+      attr_reader :primary_resource_name
+
+      # The path to this example's Terraform config.
+      # Defaults to `templates/terraform/examples/{{name}}.tf.erb`
+      attr_reader :config_path
+
       def config_documentation
         docs_defaults = {
           PROJECT_NAME: 'my-project-name',
@@ -108,7 +114,7 @@ module Provider
                          test_env_vars: test_env_vars.map { |k, v| [k, docs_defaults[v]] }.to_h,
                          primary_resource_id: primary_resource_id
                        },
-                       "templates/terraform/examples/#{name}.tf.erb"
+                       config_path
                      ))
         lines(compile_file(
                 { content: body },
@@ -117,26 +123,28 @@ module Provider
       end
 
       def config_test
+        body = config_test_body
+        lines(compile_file(
+                {
+                  content: body
+                },
+                'templates/terraform/examples/base_configs/test_body.go.erb'
+              ))
+      end
+
+      def config_test_body
         @vars ||= {}
         @test_env_vars ||= {}
         body = lines(compile_file(
                        {
-                         vars: vars.map { |k, str| [k, "#{str}-%{random_suffix}"] }.to_h,
+                         vars: vars.map { |k, str| [k, "#{str}%{random_suffix}"] }.to_h,
                          test_env_vars: test_env_vars.map { |k, _| [k, "%{#{k}}"] }.to_h,
                          primary_resource_id: primary_resource_id
                        },
-                       "templates/terraform/examples/#{name}.tf.erb"
+                       config_path
                      ))
 
-        body = substitute_test_paths body
-
-        lines(compile_file(
-                {
-                  content: body,
-                  count: vars.length
-                },
-                'templates/terraform/examples/base_configs/test_body.go.erb'
-              ))
+        substitute_test_paths body
       end
 
       def config_example
@@ -147,7 +155,7 @@ module Provider
                          vars: vars.map { |k, str| [k, "#{str}-${local.name_suffix}"] }.to_h,
                          primary_resource_id: primary_resource_id
                        },
-                       "templates/terraform/examples/#{name}.tf.erb"
+                       config_path
                      ))
 
         substitute_example_paths body
@@ -189,7 +197,9 @@ module Provider
         check :vars, type: Hash
         check :test_env_vars, type: Hash
         check :ignore_read_extra, type: Array, item_type: String, default: []
+        check :primary_resource_name, type: String
         check :skip_test, type: TrueClass
+        check :config_path, type: String, default: "templates/terraform/examples/#{name}.tf.erb"
       end
     end
   end

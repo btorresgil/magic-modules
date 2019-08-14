@@ -17,8 +17,9 @@ module Provider
   # Code generator for a library converting terraform state to gcp objects.
   class TerraformObjectLibrary < Provider::Terraform
     def generate(output_folder, types, version_name, _product_path, _dump_yaml)
-      version = @api.version_obj_or_default(version_name)
-      generate_objects(output_folder, types, version)
+      version = @api.version_obj_or_closest(version_name)
+      @base_url = version.base_url
+      generate_objects(output_folder, types, version.name)
     end
 
     def generate_object(object, output_folder, version_name)
@@ -40,14 +41,21 @@ module Provider
                     self)
     end
 
-    def compile_common_files(output_folder, version_name = 'ga')
+    def compile_common_files(output_folder, version_name, products, _common_compile_file)
       Google::LOGGER.info 'Compiling common files.'
+      file_template = ProviderFileTemplate.new(
+        output_folder,
+        version_name,
+        build_env,
+        products
+      )
       compile_file_list(output_folder, [
                           ['google/config.go',
                            'third_party/terraform/utils/config.go.erb'],
                           ['google/utils.go',
                            'third_party/terraform/utils/utils.go.erb']
-                        ], version_name)
+                        ],
+                        file_template)
     end
 
     def copy_common_files(output_folder, _version_name)
@@ -110,10 +118,14 @@ module Provider
                        ['google/service_scope.go',
                         'third_party/terraform/utils/service_scope.go'],
                        ['google/kms_utils.go',
-                        'third_party/terraform/utils/kms_utils.go']
+                        'third_party/terraform/utils/kms_utils.go'],
+                       ['google/batcher.go',
+                        'third_party/terraform/utils/batcher.go']
                      ])
     end
 
     def generate_resource_tests(data) end
+
+    def generate_iam_policy(data) end
   end
 end

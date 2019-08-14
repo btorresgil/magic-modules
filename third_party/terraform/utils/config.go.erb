@@ -18,6 +18,7 @@ import (
 	"google.golang.org/api/accesscontextmanager/v1beta"
 <% end -%>
 	"google.golang.org/api/bigquery/v2"
+	"google.golang.org/api/bigtableadmin/v2"
 	"google.golang.org/api/cloudbilling/v1"
 	"google.golang.org/api/cloudbuild/v1"
 	"google.golang.org/api/cloudfunctions/v1"
@@ -36,6 +37,9 @@ import (
 	"google.golang.org/api/dns/v1"
 	dnsBeta "google.golang.org/api/dns/v1beta2"
 	file "google.golang.org/api/file/v1beta1"
+<% unless version == 'ga' -%>
+	healthcare "google.golang.org/api/healthcare/v1beta1"
+<% end -%>
 	"google.golang.org/api/iam/v1"
 	iamcredentials "google.golang.org/api/iamcredentials/v1"
 <% unless version == 'ga' -%>
@@ -57,41 +61,32 @@ import (
 // Config is the configuration structure used to instantiate the Google
 // provider.
 type Config struct {
-	Credentials string
-	AccessToken string
-	Project     string
-	Region      string
-	Zone        string
-	Scopes      []string
+	Credentials 	 	string
+	AccessToken 	 	string
+	Project     	 	string
+	Region      	 	string
+	Zone        	 	string
+	Scopes         		[]string
+	BatchingConfig		*batchingConfig
+	UserProjectOverride bool
 
 	client    *http.Client
 	userAgent string
 
 	tokenSource oauth2.TokenSource
 
-	<% unless version == 'ga' -%>
-	BinaryAuthorizationBasePath string
-	ContainerAnalysisBasePath   string
-	MonitoringBasePath           string
-	SecurityScannerBasePath     string
+	<% products.each do |product_name| -%>
+	<%= product_name -%>BasePath string
 	<% end -%>
-
-	AccessContextManagerBasePath string
-	CloudSchedulerBasePath       string
-	FirestoreBasePath            string
-	RedisBasePath                string
-	TpuBasePath                  string
 
 	CloudBillingBasePath string
 	clientBilling        *cloudbilling.APIService
 
-	CloudBuildBasePath string
 	clientBuild        *cloudbuild.Service
 
 	ComposerBasePath string
 	clientComposer   *composer.Service
 
-	ComputeBasePath string
 	clientCompute   *compute.Service
 
 	ComputeBetaBasePath string
@@ -112,28 +107,22 @@ type Config struct {
 	DataflowBasePath string
 	clientDataflow   *dataflow.Service
 
-	DnsBasePath string
 	clientDns   *dns.Service
 
 	DnsBetaBasePath string
 	clientDnsBeta   *dnsBeta.Service
 
-	FilestoreBasePath string
 	clientFilestore   *file.Service
 
 	IamCredentialsBasePath string
 	clientIamCredentials   *iamcredentials.Service
 
-	KmsBasePath string
 	clientKms   *cloudkms.Service
 
-	LoggingBasePath string
 	clientLogging   *cloudlogging.Service
 
-	PubsubBasePath string
 	clientPubsub   *pubsub.Service
 
-	ResourceManagerBasePath string
 	clientResourceManager   *cloudresourcemanager.Service
 
 	ResourceManagerV2Beta1BasePath string
@@ -142,21 +131,19 @@ type Config struct {
 	RuntimeconfigBasePath string
 	clientRuntimeconfig   *runtimeconfig.Service
 
-	SpannerBasePath string
 	clientSpanner   *spanner.Service
 
-	SourceRepoBasePath string
 	clientSourceRepo   *sourcerepo.Service
 
-	StorageBasePath string
 	clientStorage   *storage.Service
 
-	SqlBasePath string
 	clientSqlAdmin   *sqladmin.Service
 
 	IAMBasePath string
 	clientIAM   *iam.Service
 	<% unless version == 'ga' -%>
+
+	clientHealthcare   *healthcare.Service
 
 	IAPBasePath string
 	clientIAP   *iap.Service
@@ -165,8 +152,8 @@ type Config struct {
 	ServiceManagementBasePath string
 	clientServiceMan          *servicemanagement.APIService
 
-	ServiceUsageBasePath string
-	clientServiceUsage   *serviceusage.Service
+	ServiceUsageBasePath       string
+	clientServiceUsage         *serviceusage.Service
 
 	BigQueryBasePath string
 	clientBigQuery   *bigquery.Service
@@ -177,7 +164,6 @@ type Config struct {
 	CloudIoTBasePath string
 	clientCloudIoT   *cloudiot.Service
 
-	AppEngineBasePath string
 	clientAppEngine   *appengine.APIService
 
 	ServiceNetworkingBasePath string
@@ -187,6 +173,16 @@ type Config struct {
 	clientStorageTransfer   *storagetransfer.Service
 
 	bigtableClientFactory *BigtableClientFactory
+	BigtableAdminBasePath string
+	// Unlike other clients, the Bigtable Admin client doesn't use a single
+	// service. Instead, there are several distinct services created off
+	// the base service object. To imitate most other handwritten clients,
+	// we expose those directly instead of providing the `Service` object
+	// as a factory.
+	clientBigtableProjectsInstances *bigtableadmin.ProjectsInstancesService
+
+	requestBatcherServiceUsage *RequestBatcher
+	requestBatcherIam          *RequestBatcher
 }
 
 var defaultClientScopes = []string{
@@ -457,6 +453,17 @@ func (c *Config) LoadAndValidate() error {
 		TokenSource: tokenSource,
 	}
 
+	bigtableAdminBasePath := removeBasePathVersion(c.BigtableAdminBasePath)
+	log.Printf("[INFO] Instantiating Google Cloud BigtableAdmin for path %s", bigtableAdminBasePath)
+
+	clientBigtable, err := bigtableadmin.NewService(context, option.WithHTTPClient(client))
+	if err != nil {
+		return err
+	}
+	clientBigtable.UserAgent = userAgent
+	clientBigtable.BasePath = bigtableAdminBasePath
+	c.clientBigtableProjectsInstances = bigtableadmin.NewProjectsInstancesService(clientBigtable)
+
 	sourceRepoClientBasePath := removeBasePathVersion(c.SourceRepoBasePath)
 	log.Printf("[INFO] Instantiating Google Cloud Source Repo client for path %s", sourceRepoClientBasePath)
 	c.clientSourceRepo, err = sourcerepo.NewService(context, option.WithHTTPClient(client))
@@ -545,9 +552,56 @@ func (c *Config) LoadAndValidate() error {
 		return err
 	}
 	c.clientStorageTransfer.UserAgent = userAgent
-  c.clientStorageTransfer.BasePath = storageTransferClientBasePath
+  	c.clientStorageTransfer.BasePath = storageTransferClientBasePath
+
+	<% unless version == 'ga' -%>
+	healthcareClientBasePath := removeBasePathVersion(c.HealthcareBasePath)
+	log.Printf("[INFO] Instantiating Google Cloud Healthcare client for path %s", healthcareClientBasePath)
+
+	c.clientHealthcare, err = healthcare.NewService(context, option.WithHTTPClient(client))
+	if err != nil {
+		return err
+	}
+	c.clientHealthcare.UserAgent = userAgent
+	c.clientHealthcare.BasePath = healthcareClientBasePath
+	<% end -%>
+
+	c.Region = GetRegionFromRegionSelfLink(c.Region)
+
+	c.requestBatcherServiceUsage = NewRequestBatcher("Service Usage", context, c.BatchingConfig)
+	c.requestBatcherIam = NewRequestBatcher("IAM", context, c.BatchingConfig)
 
 	return nil
+}
+
+func expandProviderBatchingConfig(v interface{}) (*batchingConfig, error) {
+	config := &batchingConfig{
+		sendAfter:      time.Second * defaultBatchSendIntervalSec,
+		enableBatching: true,
+	}
+
+	if v == nil {
+		return config, nil
+	}
+	ls := v.([]interface{})
+	if len(ls) == 0 || ls[0] == nil {
+		return config, nil
+	}
+
+	cfgV := ls[0].(map[string]interface{})
+	if sendAfterV, ok := cfgV["send_after"]; ok {
+		sendAfter, err := time.ParseDuration(sendAfterV.(string))
+		if err != nil {
+			return nil, fmt.Errorf("unable to parse duration from 'send_after' value %q", sendAfterV)
+		}
+		config.sendAfter = sendAfter
+	}
+
+	if enable, ok := cfgV["enable_batching"]; ok {
+		config.enableBatching = enable.(bool)
+	}
+
+	return config, nil
 }
 
 func (c *Config) getTokenSource(clientScopes []string) (oauth2.TokenSource, error) {

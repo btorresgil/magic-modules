@@ -306,7 +306,7 @@ overrides: !ruby/object:Overrides::ResourceOverrides
     # Larger disks were timing out at creation. Bumping up to 5 minutes.
     # https://github.com/terraform-providers/terraform-provider-google/issues/703
     timeouts: !ruby/object:Api::Timeouts
-      insert_sec: 300 # 5 minutes
+      insert_minutes: 5
     properties:
       id: !ruby/object:Overrides::Terraform::PropertyOverride
         exclude: true
@@ -472,6 +472,35 @@ overrides: !ruby/object:Overrides::ResourceOverrides
         default_from_api: true
       IPAddress: !ruby/object:Overrides::Terraform::PropertyOverride
         default_from_api: true
+        description: |
+          The IP address that this forwarding rule is serving on behalf of.
+
+          Addresses are restricted based on the forwarding rule's load balancing
+          scheme (EXTERNAL or INTERNAL) and scope (global or regional).
+
+          When the load balancing scheme is EXTERNAL, for global forwarding
+          rules, the address must be a global IP, and for regional forwarding
+          rules, the address must live in the same region as the forwarding
+          rule. If this field is empty, an ephemeral IPv4 address from the same
+          scope (global or regional) will be assigned. A regional forwarding
+          rule supports IPv4 only. A global forwarding rule supports either IPv4
+          or IPv6.
+
+          When the load balancing scheme is INTERNAL, this can only be an RFC
+          1918 IP address belonging to the network/subnet configured for the
+          forwarding rule. By default, if this field is empty, an ephemeral
+          internal IP address will be automatically allocated from the IP range
+          of the subnet or network configured for this forwarding rule.
+
+          ~> **NOTE** The address should be specified as a literal IP address,
+          e.g. `100.1.2.3` to avoid a permanent diff, as the server returns the
+          IP address regardless of the input value.
+
+          The server accepts a literal IP address or a URL reference to an existing
+          Address resource. The following examples are all valid but only the first
+          will prevent a permadiff. If you are using `google_compute_address` or
+          similar, interpolate using `.address` instead of `.self_link` or similar
+          to prevent a diff on re-apply.
       IPProtocol: !ruby/object:Overrides::Terraform::PropertyOverride
         diff_suppress_func: 'caseDiffSuppress'
         default_from_api: true
@@ -546,6 +575,35 @@ overrides: !ruby/object:Overrides::ResourceOverrides
         exclude: true
       IPAddress: !ruby/object:Overrides::Terraform::PropertyOverride
         default_from_api: true
+        description: |
+          The IP address that this forwarding rule is serving on behalf of.
+
+          Addresses are restricted based on the forwarding rule's load balancing
+          scheme (EXTERNAL or INTERNAL) and scope (global or regional).
+
+          When the load balancing scheme is EXTERNAL, for global forwarding
+          rules, the address must be a global IP, and for regional forwarding
+          rules, the address must live in the same region as the forwarding
+          rule. If this field is empty, an ephemeral IPv4 address from the same
+          scope (global or regional) will be assigned. A regional forwarding
+          rule supports IPv4 only. A global forwarding rule supports either IPv4
+          or IPv6.
+
+          When the load balancing scheme is INTERNAL, this can only be an RFC
+          1918 IP address belonging to the network/subnet configured for the
+          forwarding rule. By default, if this field is empty, an ephemeral
+          internal IP address will be automatically allocated from the IP range
+          of the subnet or network configured for this forwarding rule.
+
+          ~> **NOTE** The address should be specified as a literal IP address,
+          e.g. `100.1.2.3` to avoid a permanent diff, as the server returns the
+          IP address regardless of the input value.
+
+          The server accepts a literal IP address or a URL reference to an existing
+          Address resource. The following examples are all valid but only the first
+          will prevent a permadiff. If you are using `google_compute_address` or
+          similar, interpolate using `.address` instead of `.self_link` or similar
+          to prevent a diff on re-apply.
       IPProtocol: !ruby/object:Overrides::Terraform::PropertyOverride
         diff_suppress_func: 'caseDiffSuppress'
         default_from_api: true
@@ -627,28 +685,22 @@ overrides: !ruby/object:Overrides::ResourceOverrides
           health_check_name: "internal-service-health-check"
     custom_code: !ruby/object:Provider::Terraform::CustomCode
       encoder: templates/terraform/encoders/health_check_type.erb
+      constants: templates/terraform/constants/health_check.erb
+      resource_definition: templates/terraform/resource_definition/health_check.erb
     properties:
-     id: !ruby/object:Overrides::Terraform::PropertyOverride
-       exclude: true
-     type: !ruby/object:Overrides::Terraform::PropertyOverride
-       output: true
-       description: The type of the health check. One of HTTP, HTTPS, TCP, or SSL.
-     httpHealthCheck.portName: !ruby/object:Overrides::Terraform::PropertyOverride
-       exclude: true
-     httpHealthCheck.port: !ruby/object:Overrides::Terraform::PropertyOverride
-       default_value: 80
-     httpsHealthCheck.portName: !ruby/object:Overrides::Terraform::PropertyOverride
-       exclude: true
-     httpsHealthCheck.port: !ruby/object:Overrides::Terraform::PropertyOverride
-       default_value: 443
-     tcpHealthCheck.portName: !ruby/object:Overrides::Terraform::PropertyOverride
-       exclude: true
-     tcpHealthCheck.port: !ruby/object:Overrides::Terraform::PropertyOverride
-       default_value: 80
-     sslHealthCheck.portName: !ruby/object:Overrides::Terraform::PropertyOverride
-       exclude: true
-     sslHealthCheck.port: !ruby/object:Overrides::Terraform::PropertyOverride
-       default_value: 443
+      id: !ruby/object:Overrides::Terraform::PropertyOverride
+        exclude: true
+      type: !ruby/object:Overrides::Terraform::PropertyOverride
+        output: true
+        description: The type of the health check. One of HTTP, HTTPS, TCP, or SSL.
+      httpHealthCheck: !ruby/object:Overrides::Terraform::PropertyOverride
+        diff_suppress_func: 'portDiffSuppress'
+      httpsHealthCheck: !ruby/object:Overrides::Terraform::PropertyOverride
+        diff_suppress_func: 'portDiffSuppress'
+      tcpHealthCheck: !ruby/object:Overrides::Terraform::PropertyOverride
+        diff_suppress_func: 'portDiffSuppress'
+      sslHealthCheck: !ruby/object:Overrides::Terraform::PropertyOverride
+        diff_suppress_func: 'portDiffSuppress'
   Image: !ruby/object:Overrides::Terraform::ResourceOverride
     examples:
       - !ruby/object:Provider::Terraform::Examples
@@ -685,9 +737,9 @@ overrides: !ruby/object:Overrides::ResourceOverrides
     # Users were experiencing timeouts. Bumping up to 6 minutes.
     # https://github.com/terraform-providers/terraform-provider-google/issues/852
     timeouts: !ruby/object:Api::Timeouts
-      insert_sec: 360 # 6 minutes
-      update_sec: 360 # 6 minutes
-      delete_sec: 360 # 6 minutes
+      insert_minutes: 6
+      update_minutes: 6
+      delete_minutes: 6
     exclude: true
   InstanceGroup: !ruby/object:Overrides::Terraform::ResourceOverride
     exclude: true
@@ -931,7 +983,7 @@ overrides: !ruby/object:Overrides::ResourceOverrides
         default_from_api: true
   RegionDisk: !ruby/object:Overrides::Terraform::ResourceOverride
     timeouts: !ruby/object:Api::Timeouts
-      insert_sec: 300 # 5 minutes
+      insert_minutes: 5
     properties:
       id: !ruby/object:Overrides::Terraform::PropertyOverride
         exclude: true
@@ -1016,8 +1068,6 @@ overrides: !ruby/object:Overrides::ResourceOverrides
       nextHopGateway: !ruby/object:Overrides::Terraform::PropertyOverride
         diff_suppress_func: 'compareSelfLinkOrResourceName'
         custom_expand: templates/terraform/custom_expand/route_gateway.erb
-        # Description here is overridden because puppet won't compile if you ask
-        # it to include docs greater than 80 characters.
         description: |+
           URL to a gateway that should handle matching packets.
           Currently, you can only specify the internet gateway, using a full or
@@ -1028,8 +1078,6 @@ overrides: !ruby/object:Overrides::ResourceOverrides
           * The string `default-internet-gateway`.
       nextHopInstance: !ruby/object:Overrides::Terraform::PropertyOverride
         custom_expand: templates/terraform/custom_expand/route_instance.erb
-        # Description here is overridden because puppet won't compile if you ask
-        # it to include docs greater than 80 characters.
         description: |+
           URL to an instance that should handle matching packets.
           You can specify this as a full or partial URL. For example:
@@ -1071,9 +1119,9 @@ overrides: !ruby/object:Overrides::ResourceOverrides
         custom_flatten: 'templates/terraform/custom_flatten/name_from_self_link.erb'
   Snapshot: !ruby/object:Overrides::Terraform::ResourceOverride
     timeouts: !ruby/object:Api::Timeouts
-      insert_sec: 300 # 5 minutes
-      update_sec: 300 # 5 minutes
-      delete_sec: 300 # 5 minutes
+      insert_minutes: 5
+      update_minutes: 5
+      delete_minutes: 5
     create_url: projects/{{project}}/zones/{{zone}}/disks/{{source_disk}}/createSnapshot
     examples:
       - !ruby/object:Provider::Terraform::Examples
@@ -1113,11 +1161,11 @@ overrides: !ruby/object:Overrides::ResourceOverrides
       extra_schema_entry: templates/terraform/extra_schema_entry/snapshot.erb
   ManagedSslCertificate: !ruby/object:Overrides::Terraform::ResourceOverride
     timeouts: !ruby/object:Api::Timeouts
-      insert_sec: 360 # 6 minutes
-      update_sec: 360 # 6 minutes
+      insert_minutes: 6
+      update_minutes: 6
       # Deletes can take 20-30 minutes to complete, since they depend
       # on the provisioning process either succeeding or failing completely.
-      delete_sec: 1800 # 30 minutes
+      delete_minutes: 30
     docs: !ruby/object:Provider::Terraform::Docs
       warning: |
         This resource should be used with extreme caution!  Provisioning an SSL
@@ -1255,9 +1303,9 @@ overrides: !ruby/object:Overrides::ResourceOverrides
     # Users were experiencing timeout. Bumping up to 6 minutes.
     # https://github.com/terraform-providers/terraform-provider-google/issues/718
     timeouts: !ruby/object:Api::Timeouts
-      insert_sec: 360 # 6 minutes
-      update_sec: 360 # 6 minutes
-      delete_sec: 360 # 6 minutes
+      insert_minutes: 6
+      update_minutes: 6
+      delete_minutes: 6
     id_format: "{{region}}/{{name}}"
     properties:
       id: !ruby/object:Overrides::Terraform::PropertyOverride
@@ -1271,6 +1319,10 @@ overrides: !ruby/object:Overrides::ResourceOverrides
         default_from_api: true
         schema_config_mode_attr: true
         send_empty_value: true
+        description: |
+          {{description}}This field uses attr-as-block mode to avoid breaking
+          users during the 0.12 upgrade. See [the Attr-as-Block page](https://www.terraform.io/docs/configuration/attr-as-blocks.html)
+          for more details.
       secondaryIpRanges.rangeName: !ruby/object:Overrides::Terraform::PropertyOverride
         validation: !ruby/object:Provider::Terraform::Validation
           function: 'validateGCPName'

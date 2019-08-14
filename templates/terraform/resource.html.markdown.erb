@@ -101,16 +101,8 @@ To get more information about <%= object.name -%>, see:
 
 The following arguments are supported:
 
-<% properties.select(&:required).each do |prop| -%>
-<%   if prop.flatten_object -%>
-<%     if prop.nested_properties? -%>
-<%       prop.nested_properties.each do |p| -%>
-<%=        lines(build_property_documentation(p)) -%>
-<%       end -%>
-<%     end -%>
-<%   else -%>
+<% object.root_properties.select(&:required).each do |prop| -%>
 <%= lines(build_property_documentation(prop)) -%>
-<%   end -%>
 <% end -%>
 
 <% properties.select(&:required).each do |prop| -%>
@@ -122,16 +114,8 @@ The following arguments are supported:
 
 - - -
 
-<% properties.reject(&:required).reject(&:output).each do |prop| -%>
-<%   if prop.flatten_object -%>
-<%     if prop.nested_properties? -%>
-<%       prop.nested_properties.each do |p| -%>
-<%=        lines(build_property_documentation(p)) -%>
-<%       end -%>
-<%     end -%>
-<%   else -%>
+<% object.root_properties.reject(&:required).reject(&:output).each do |prop| -%>
 <%=    lines(build_property_documentation(prop)) -%>
-<%   end -%>
 <% end -%>
 <% if object.base_url.include?("{{project}}")-%>
 <%# The following new line allow for project to be bullet-formatted properly. -%>
@@ -152,7 +136,7 @@ The following arguments are supported:
 
 In addition to the arguments listed above, the following computed attributes are exported:
 
-<% properties.select(&:output).each do |prop| -%>
+<% object.root_properties.select(&:output).each do |prop| -%>
 <%= lines(build_property_documentation(prop)) -%>
 <% end -%>
 <% if object.has_self_link -%>
@@ -172,11 +156,11 @@ In addition to the arguments listed above, the following computed attributes are
 This resource provides the following
 [Timeouts](/docs/configuration/resources.html#timeouts) configuration options:
 
-- `create` - Default is <%= timeouts.insert_sec / 60 -%> minutes.
+- `create` - Default is <%= timeouts.insert_minutes -%> minutes.
 <% if updatable?(object, properties) -%>
-- `update` - Default is <%= timeouts.update_sec / 60 -%> minutes.
+- `update` - Default is <%= timeouts.update_minutes -%> minutes.
 <% end -%>
-- `delete` - Default is <%= timeouts.delete_sec / 60 -%> minutes.
+- `delete` - Default is <%= timeouts.delete_minutes -%> minutes.
 
 ## Import
 
@@ -190,3 +174,9 @@ $ terraform import <% if object.min_version.name == 'beta' %>-provider=google-be
 
 -> If you're importing a resource with beta features, make sure to include `-provider=google-beta`
 as an argument so that Terraform uses the correct provider to import your resource.
+
+<% if object.base_url.include?("{{project}}")-%>
+## User Project Overrides
+
+This resource supports [User Project Overrides](https://www.terraform.io/docs/providers/google/provider_reference.html#user_project_override).
+<% end -%>

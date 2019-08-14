@@ -65,6 +65,8 @@ The following arguments are supported:
 
 * `cors` - (Optional) The bucket's [Cross-Origin Resource Sharing (CORS)](https://www.w3.org/TR/cors/) configuration. Multiple blocks of this type are permitted. Structure is documented below.
 
+* `retention_policy` - (Optional) Configuration of the bucket's data retention policy for how long objects in the bucket should be retained. Structure is documented below.
+
 * `labels` - (Optional) A set of key/value label pairs to assign to the bucket.
 
 * `logging` - (Optional) The bucket's [Access & Storage Logs](https://cloud.google.com/storage/docs/access-logs) configuration.
@@ -123,6 +125,12 @@ The `cors` block supports:
 
 * `max_age_seconds` - (Optional) The value, in seconds, to return in the [Access-Control-Max-Age header](https://www.w3.org/TR/cors/#access-control-max-age-response-header) used in preflight responses.
 
+The `retention_policy` block supports:
+
+* `is_locked` - (Optional) If set to `true`, the bucket will be [locked](https://cloud.google.com/storage/docs/using-bucket-lock#lock-bucket) and permanently restrict edits to the bucket's retention policy.  Caution: Locking a bucket is an irreversible action.
+
+* `retention_period` - (Optional) The period of time, in seconds, that objects in the bucket must be retained and cannot be deleted, overwritten, or archived. The value must be less than 3,155,760,000 seconds.
+
 The `logging` block supports:
 
 * `log_bucket` - (Required) The bucket that will receive log objects.
@@ -158,4 +166,9 @@ e.g.
 $ terraform import google_storage_bucket.image-store image-store-bucket
 $ terraform import google_storage_bucket.image-store tf-test-project/image-store-bucket
 ```
+
+~> **Note:** Terraform will import this resource with `force_destroy` set to
+`false` in state. If you've set it to `true` in config, run `terraform apply` to
+update the value set in state. If you delete this resource before updating the
+value, objects in the bucket will not be destroyed.
 
